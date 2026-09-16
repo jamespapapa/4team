@@ -22,7 +22,7 @@ const refDate = computed(() => {
         </svg>
       </span>
       <div>
-        <strong>청약지도</strong>
+        <strong>금갱노노</strong>
         <span>수도권 분양·임대 공고 {{ NOTICES.length }}건 · 접수중 {{ openCount }}건</span>
       </div>
     </div>
