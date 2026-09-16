@@ -50,4 +50,6 @@ export const api = {
   visit: (noticeId) => request('POST', `/notices/${encodeURIComponent(noticeId)}/visit`),
   saveProfile: (profile) => request('PUT', '/profile', { profile }),
   toggleSchedule: (noticeId) => request('POST', `/notices/${encodeURIComponent(noticeId)}/schedule/toggle`),
+  runScores: () => request('GET', '/geumgaengrun/scores'),
+  saveRunScore: (name, score) => request('POST', '/geumgaengrun/scores', { name, score }),
 };
