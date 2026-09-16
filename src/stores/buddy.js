@@ -15,6 +15,17 @@ import { reactive } from 'vue';
 
 export const BUDDY_DELAY = 500;
 
+/**
+ * 숨은 미니게임(금갱런)을 여는 연타 규칙.
+ * 클릭 사이 간격이 GAME_CLICK_GAP 을 넘으면 처음부터 다시 센다.
+ * 예전에는 "2.5초 안에 5번"이라 화면에 대놓고 안내하기엔 너무 빡빡했다.
+ */
+export const GAME_CLICKS = 5;
+export const GAME_CLICK_GAP = 1500;
+
+/** 조르는 말풍선을 갈아 끼우는 주기 */
+export const BEG_ROTATE_MS = 4600;
+
 /** 클릭을 가로챌 요소. 링크는 위 이유로 제외한다. */
 const INTERACTIVE = 'button, [role="button"], summary, .chip';
 
@@ -23,7 +34,7 @@ export const buddyState = reactive({
   animating: false,
   /** 말풍선 문구 */
   message: '',
-  /** 금갱런 미니게임(연속 5클릭 이스터에그)이 열려 있는지 */
+  /** 금갱런 미니게임(연속 5클릭)이 열려 있는지. 닫혀 있는 동안 금갱이가 계속 조른다. */
   gameOpen: false,
 });
 
@@ -44,6 +55,18 @@ const IDLE_MESSAGES = [
   '지도 정리하는 중!',
   '오늘도 손품 파는 중!',
 ];
+
+/** 게임이 닫혀 있는 동안 계속 띄우는 "눌러달라"는 문구 */
+const BEG_MESSAGES = [
+  '저 좀 5번 두드려 주세요… 네? 🙏',
+  '딱 5번만요! 숨겨둔 게임이 열려요',
+  '5연타 하면 금갱런 시작!',
+  '아무도 모르는 게임이 있는데… 5번이요!',
+  '제발요, 다섯 번만 눌러주세요!',
+  '심심한데… 5번 눌러서 같이 달려요!',
+];
+
+export const pickBegMessage = () => BEG_MESSAGES[Math.floor(Math.random() * BEG_MESSAGES.length)];
 
 export const pickWorkMessage = () => WORK_MESSAGES[Math.floor(Math.random() * WORK_MESSAGES.length)];
 export const pickIdleMessage = () => IDLE_MESSAGES[Math.floor(Math.random() * IDLE_MESSAGES.length)];

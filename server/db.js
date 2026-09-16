@@ -92,6 +92,18 @@ CREATE TABLE IF NOT EXISTS saved_schedules (
   PRIMARY KEY (uid, notice_id)
 );
 
+-- 금갱런(숨은 미니게임) 명예의 전당.
+-- 사람(uid)당 한 줄만 두고 자기 최고 기록만 남긴다. 그래야 한 사람이
+-- 1·2·3등을 독식하지 않고 시상대에 세 사람이 선다.
+CREATE TABLE IF NOT EXISTS run_scores (
+  uid        TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  score      INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_run_scores_rank ON run_scores (score DESC, created_at);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -326,6 +338,51 @@ export function saveProfile(db, uid, profile) {
     `INSERT INTO profiles (uid, data, updated_at) VALUES (?, ?, ?)
      ON CONFLICT(uid) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`
   ).run(uid, JSON.stringify(profile), new Date().toISOString());
+}
+
+/* ------------------------------------------------------ 금갱런 명예의 전당 */
+
+/** 점수 내림차순, 같으면 먼저 세운 기록이 위로 간다. */
+export function topRunScores(db, limit = 10) {
+  return db
+    .prepare(
+      `SELECT name, score, created_at AS createdAt FROM run_scores
+       ORDER BY score DESC, created_at ASC LIMIT ?`
+    )
+    .all(limit);
+}
+
+export function myRunScore(db, uid) {
+  return db.prepare('SELECT name, score FROM run_scores WHERE uid = ?').get(uid) ?? null;
+}
+
+/**
+ * 기록을 남긴다. 자기 최고 기록을 넘지 못하면 아무것도 바꾸지 않는다.
+ * @returns {{ best: number, improved: boolean, rank: number }}
+ */
+export function saveRunScore(db, { uid, name, score }) {
+  const prev = db.prepare('SELECT score FROM run_scores WHERE uid = ?').get(uid);
+  const improved = !prev || score > prev.score;
+
+  if (improved) {
+    db.prepare(
+      `INSERT INTO run_scores (uid, name, score, created_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT(uid) DO UPDATE SET
+         name = excluded.name, score = excluded.score, created_at = excluded.created_at`
+    ).run(uid, name, score, new Date().toISOString());
+  }
+
+  const best = improved ? score : prev.score;
+  const row = db.prepare('SELECT created_at AS createdAt FROM run_scores WHERE uid = ?').get(uid);
+  // 나보다 점수가 높거나, 동점이면서 먼저 세운 사람의 수 + 1 = 내 등수
+  const ahead = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM run_scores
+       WHERE score > ? OR (score = ? AND created_at < ?)`
+    )
+    .get(best, best, row.createdAt).n;
+
+  return { best, improved, rank: ahead + 1 };
 }
 
 /* -------------------------------------------------------------- 캘린더 */

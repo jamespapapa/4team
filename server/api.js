@@ -8,15 +8,18 @@ import {
   insertPost,
   listNearbyPosts,
   listPosts,
+  myRunScore,
   postCounts,
   postExists,
   recordVisit,
   reportComment,
   reportPost,
   saveProfile,
+  saveRunScore,
   scheduleIds,
   toggleLike,
   toggleSchedule,
+  topRunScores,
   visitCounts,
 } from './db.js';
 import { isKnownNotice } from './notices.js';
@@ -35,12 +38,18 @@ const YEAR = 365 * 24 * 60 * 60;
 /** 같은 사람이 같은 단지를 다시 열어도 이 시간 안에는 방문수가 오르지 않는다. */
 const VISIT_COOLDOWN_MS = Number(process.env.VISIT_COOLDOWN_MS ?? 30 * 60 * 1000);
 
+/** 명예의 전당에 보여 줄 줄 수. 시상대 3명 + 나머지 목록. */
+const RUN_BOARD_SIZE = 10;
+/** 프레임 기반 점수라 현실적으로 닿을 수 없는 상한. 조작된 값을 거른다. */
+const RUN_MAX_SCORE = 1000000;
+
 const LIMITS = {
   title: 80,
   content: 2000,
   author: 20,
   comment: 400,
   reportReason: 100,
+  runName: 12,
 };
 
 function readCookie(header, name) {
@@ -172,6 +181,25 @@ export function createApi(db) {
     const { id } = req.params;
     if (!isKnownNotice(id)) return res.status(404).json({ error: '없는 공고입니다.' });
     res.json(toggleSchedule(db, req.uid, id));
+  });
+
+  /* ---------------------------------------------- 금갱런 명예의 전당 */
+
+  api.get('/api/geumgaengrun/scores', (req, res) => {
+    res.json({ scores: topRunScores(db, RUN_BOARD_SIZE), mine: myRunScore(db, req.uid) });
+  });
+
+  api.post('/api/geumgaengrun/scores', rateLimit('runScore', 60, 60 * 60 * 1000), (req, res) => {
+    const name = String(req.body?.name ?? '').trim().slice(0, LIMITS.runName);
+    const score = Number(req.body?.score);
+
+    if (!name) return res.status(400).json({ error: '이름을 입력해 주세요.' });
+    if (!Number.isInteger(score) || score < 0 || score > RUN_MAX_SCORE) {
+      return res.status(400).json({ error: '점수가 올바르지 않습니다.' });
+    }
+
+    const result = saveRunScore(db, { uid: req.uid, name, score });
+    res.status(201).json({ ...result, scores: topRunScores(db, RUN_BOARD_SIZE), mine: myRunScore(db, req.uid) });
   });
 
   api.get('/api/profile', (req, res) => res.json({ profile: getProfile(db, req.uid) }));
